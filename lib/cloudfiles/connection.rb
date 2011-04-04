@@ -291,14 +291,13 @@ module CloudFiles
       response
     rescue Errno::EPIPE, Timeout::Error, Errno::EINVAL, EOFError, IOError
       # Server closed the connection, retry
-      raise CloudFiles::Exception::Connection, "Unable to reconnect to #{server} after #{attempts} attempts" if attempts >= 5
       attempts += 1
       begin
         @http[server].finish
       rescue
         nil
       end
-      start_http(server, path, port, scheme, headers)
+      raise CloudFiles::Exception::Connection, "Unable to connect to #{server} after #{attempts} attempts" if attempts >= 5
       retry
     rescue ExpiredAuthTokenException
       raise CloudFiles::Exception::Connection, "Authentication token expired and you have requested not to retry" if @retry_auth == false

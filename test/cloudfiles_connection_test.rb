@@ -82,6 +82,18 @@ class CloudfilesConnectionTest < Test::Unit::TestCase
     end
   end
   
+  def test_cfreq_attempts
+    server = stub(:use_ssl= => true, :verify_mode= => true, :start => true, :finish => true)
+    server.expects(:request).times(5).raises(Timeout::Error)
+    Net::HTTP.stubs(:new).returns(server)
+    begin
+      @connection.cfreq("PUT", "test.server.example", "/dummypath", "80", "http")
+    rescue CloudFiles::Exception::Connection => e
+      message = e.message
+    end
+    assert_equal "Unable to connect to test.server.example after 5 attempts", message
+  end
+  
   def test_net_http_raises_connection_exception
     Net::HTTP.expects(:new).raises(CloudFiles::Exception::Connection)
     assert_raises(CloudFiles::Exception::Connection) do
