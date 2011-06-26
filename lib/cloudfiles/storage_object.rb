@@ -13,9 +13,6 @@ module CloudFiles
     # CloudFiles::Exception::NoSuchObject Exception will be raised.  If not, an "empty" CloudFiles::StorageObject will be returned, ready for data
     # via CloudFiles::StorageObject.write
     def initialize(container, objectname, force_exists = false, make_path = false)
-      if objectname.match(/\?/)
-        raise CloudFiles::Exception::Syntax, "Object #{objectname} contains an invalid character in the name (? not allowed)"
-      end
       @container = container
       @containername = container.name
       @name = objectname
@@ -79,6 +76,10 @@ module CloudFiles
     def content_type
       self.object_metadata[:content_type]
     end
+
+    def content_type=(type)
+      self.copy(:headers => {'Content-Type' => type})
+    end
  
     # Retrieves the data from an object and stores the data in memory.  The data is returned as a string.
     # Throws a NoSuchObjectException if the object doesn't exist.
@@ -97,6 +98,7 @@ module CloudFiles
       raise CloudFiles::Exception::NoSuchObject, "Object #{@name} does not exist" unless (response.code =~ /^20/)
       response.body
     end
+    alias :read :data
 
     # Retrieves the data from an object and returns a stream that must be passed to a block.  Throws a
     # NoSuchObjectException if the object doesn't exist.
@@ -143,9 +145,10 @@ module CloudFiles
       metadatahash.each{ |key, value| headers['X-Object-Meta-' + key.to_s.capitalize] = value.to_s }
       response = self.container.connection.cfreq("POST", @storagehost, @storagepath, @storageport, @storagescheme, headers)
       raise CloudFiles::Exception::NoSuchObject, "Object #{@name} does not exist" if (response.code == "404")
-      raise CloudFiles::Exception::InvalidResponse, "Invalid response code #{response.code}" unless (response.code == "202")
+      raise CloudFiles::Exception::InvalidResponse, "Invalid response code #{response.code}" unless (response.code =~ /^20/)
       true
     end
+    alias :metadata= :set_metadata
     
 
     # Returns the object's manifest.
@@ -269,8 +272,13 @@ module CloudFiles
     #
     #   object.load_from_filename("/tmp/nonexistent.txt")
     #   => Errno::ENOENT: No such file or directory - /tmp/nonexistent.txt
-    def load_from_filename(filename, headers = {})
+    def load_from_filename(filename, headers = {}, check_md5 = false)
       f = open(filename)
+      if check_md5
+          require 'digest/md5'
+          md5_hash = Digest::MD5.file(filename)
+          headers["Etag"] = md5_hash.to_s()
+      end
       self.write(f, headers)
       f.close
       true
@@ -293,7 +301,7 @@ module CloudFiles
     #   object.save_to_filename("/tmp/owned_by_root.txt")
     #   => Errno::EACCES: Permission denied - /tmp/owned_by_root.txt
     def save_to_filename(filename)
-      File.open(filename, 'w+') do |f|
+      File.open(filename, 'wb+') do |f|
         self.data_stream do |chunk|
           f.write chunk
         end
@@ -339,7 +347,7 @@ module CloudFiles
     #
     # Returns the new CloudFiles::StorageObject for the copied item.
     def copy(options = {})
-      raise CloudFiles::Exception::Syntax, "You must either provide the :container or the :name for this operation" unless (options[:container] || options[:name])
+      raise CloudFiles::Exception::Syntax, "You must provide the :container, :name, or :headers for this operation" unless (options[:container] || options[:name] || options[:headers])
       new_container = options[:container] || self.container.name
       new_name = options[:name] || self.name
       new_headers = options[:headers] || {}

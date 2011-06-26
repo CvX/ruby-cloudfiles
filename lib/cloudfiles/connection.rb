@@ -298,7 +298,7 @@ module CloudFiles
       rescue
         nil
       end
-      raise CloudFiles::Exception::Connection, "Unable to connect to #{server} after #{attempts} attempts" if attempts >= 5
+      raise CloudFiles::Exception::Connection, "Unable to connect to #{server.address} after #{attempts} attempts" if attempts >= 5
       retry
     rescue ExpiredAuthTokenException
       raise CloudFiles::Exception::Connection, "Authentication token expired and you have requested not to retry" if @retry_auth == false
@@ -329,7 +329,7 @@ module CloudFiles
           end
           @http[server].start
         rescue
-          raise CloudFiles::Exception::Connection, "Unable to connect to #{server}"
+          raise CloudFiles::Exception::Connection, "Unable to connect to #{server.address}"
         end
       end
     end

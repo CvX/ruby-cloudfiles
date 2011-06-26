@@ -108,12 +108,12 @@ module CloudFiles
     
     # Size of the container (in bytes)
     def bytes
-      self.metadata[:bytes]
+      self.container_metadata[:bytes]
     end
 
     # Number of objects in the container
     def count
-      self.metadata[:count]
+      self.container_metadata[:count]
     end
 
     # Returns true if the container is public and CDN-enabled.  Returns false otherwise.
@@ -226,6 +226,8 @@ module CloudFiles
     # Retrieves a list of all objects in the current container along with their size in bytes, hash, and content_type.
     # If no objects exist, an empty hash is returned.  Throws an InvalidResponseException if the request fails.  Takes a
     # parameter hash as an argument, in the same form as the objects method.
+    #
+    # Accepts the same options as objects to limit the returned set.
     #
     # Returns a hash in the same format as the containers_detail from the CloudFiles class.
     #
